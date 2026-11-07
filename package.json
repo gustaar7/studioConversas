@@ -1,52 +1,67 @@
 {
-    "name":  "conversas-studio",
-    "version":  "1.0.0",
-    "description":  "AutomaÃƒÆ’Ã‚Â§ÃƒÆ’Ã‚Â£o local de Shorts para Conversas Studio",
-    "main":  "electron/main.cjs",
-    "scripts":  {
-                    "dev":  "vite --host 127.0.0.1",
-                    "build":  "vite build",
-                    "start":  "electron .",
-                    "dist":  "npm run build \u0026\u0026 electron-builder --win nsis"
-                },
-    "dependencies":  {
-                         "@vitejs/plugin-react":  "latest",
-                         "autoprefixer":  "latest",
-                         "lucide-react":  "latest",
-                         "postcss":  "latest",
-                         "react":  "latest",
-                         "react-dom":  "latest",
-                         "tailwindcss":  "latest",
-                         "typescript":  "latest",
-                         "vite":  "latest"
-                     },
-    "devDependencies":  {
-                            "@types/react":  "^19.2.18",
-                            "@types/react-dom":  "^19.2.4",
-                            "electron-builder":  "^26.15.3",
-                            "electron":  "latest"
-                        },
-    "build":  {
-                  "appId":  "com.conversasstudio.app",
-                  "productName":  "Conversas Studio",
-                  "directories":  {
-                                      "output":  "release"
-                                  },
-                  "files":  [
-                                "dist/**/*",
-                                "electron/**/*",
-                                "package.json"
-                            ],
-                  "win":  {
-                              "target":  [
-                                             "nsis"
-                                         ]
-                          },
-                  "nsis":  {
-                               "oneClick":  false,
-                               "allowToChangeInstallationDirectory":  true,
-                               "createDesktopShortcut":  true,
-                               "createStartMenuShortcut":  true
-                           }
-              }
+    "name": "conversas-studio",
+    "version": "2.0.0",
+    "description": "AutomaÃƒÆ’Ã‚Â§ÃƒÆ’Ã‚Â£o local de Shorts para Conversas Studio",
+    "main": "electron/main.cjs",
+    "scripts": {
+        "dev": "vite --host 127.0.0.1",
+        "build": "vite build",
+        "start": "electron .",
+        "dist": "npm run build && electron-builder --win nsis"
+    },
+    "dependencies": {
+        "@vitejs/plugin-react": "latest",
+        "autoprefixer": "latest",
+        "lucide-react": "latest",
+        "postcss": "latest",
+        "react": "latest",
+        "react-dom": "latest",
+        "tailwindcss": "latest",
+        "typescript": "latest",
+        "vite": "latest"
+    },
+    "devDependencies": {
+        "@types/react": "^19.2.18",
+        "@types/react-dom": "^19.2.4",
+        "electron": "latest",
+        "electron-builder": "^26.15.3"
+    },
+    "build": {
+        "appId": "com.conversasstudio.app",
+        "productName": "Conversas Studio",
+        "directories": {
+            "output": "release"
+        },
+        "files": [
+            "dist/**/*",
+            "electron/**/*",
+            "package.json"
+        ],
+        "win": {
+            "target": [
+                "nsis"
+            ],
+            "icon": "resources/app-icon.ico"
+        },
+        "nsis": {
+            "oneClick": false,
+            "allowToChangeInstallationDirectory": true,
+            "createDesktopShortcut": true,
+            "createStartMenuShortcut": true
+        },
+        "extraResources": [
+            {
+                "from": "resources/ffmpeg/ffmpeg.exe",
+                "to": "ffmpeg.exe"
+            },
+            {
+                "from": "resources/ffmpeg/ffprobe.exe",
+                "to": "ffprobe.exe"
+            },
+            {
+                "from": "resources/app-icon.ico",
+                "to": "app-icon.ico"
+            }
+        ]
+    }
 }

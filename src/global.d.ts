@@ -1,1 +1,2 @@
-declare module '*.css';
+import type { YouTubeAPI } from './youtubeTypes';
+declare global { interface Window { desktop?: { loadStore: () => Promise<any>; saveStore: (value: any) => Promise<any>; chooseFiles: (filters?: any[]) => Promise<string[]>; chooseFolder: () => Promise<string>; openPath: (target: string) => Promise<any>; deleteOutput: (target: string, root: string) => Promise<any>; listMedia: (kind: string) => Promise<string[]>; probe: (file: string) => Promise<number>; encoder: (requested: string) => Promise<string>; render: (payload: any) => Promise<any>; onProgress: (callback: (value: any) => void) => () => void; youtube: YouTubeAPI } } }
