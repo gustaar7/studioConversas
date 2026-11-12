@@ -7,11 +7,37 @@ const appIcon = app.isPackaged ? path.join(process.resourcesPath, 'app-icon.ico'
 const VIDEO_EXTENSIONS = new Set(['.mp4', '.mov', '.mkv', '.webm', '.avi']);
 const fallbackSettings = () => ({ prefix: '@conversas_studio', suffix: 'Link in bio', outputDir: path.join(app.getPath('videos'), 'Conversas Studio'), resolution: '1080x1920', fps: 30, quality: 'Alta', encoder: 'auto' });
 const storePath = () => path.join(app.getPath('userData'), 'conversas-studio.json');
-function readStore() { try { return JSON.parse(fs.readFileSync(storePath(), 'utf8')); } catch { return { settings: { prefix: '@conversas_studio', suffix: 'Link in bio', outputDir: path.join(app.getPath('videos'), 'Conversas Studio'), resolution: '1080x1920', fps: 30, quality: 'Alta', encoder: 'auto' }, combinations: [] }; } }
-function writeStore(data) { fs.mkdirSync(path.dirname(storePath()), { recursive: true }); fs.writeFileSync(storePath(), JSON.stringify(data, null, 2)); }
+function readStore() { for (const f of [storePath(), storePath().replace(/\.json$/, '.bak.json')]) { try { return JSON.parse(fs.readFileSync(f, 'utf8')); } catch {} } return { settings: { prefix: '@conversas_studio', suffix: 'Link in bio', outputDir: path.join(app.getPath('videos'), 'Conversas Studio'), resolution: '1080x1920', fps: 30, quality: 'Alta', encoder: 'auto' }, combinations: [] }; }
+let lastBackupAt = 0;
+function writeStore(data) { const file = storePath(); fs.mkdirSync(path.dirname(file), { recursive: true }); try { if (fs.existsSync(file) && Date.now() - lastBackupAt > 5 * 60 * 1000) { JSON.parse(fs.readFileSync(file, 'utf8')); fs.copyFileSync(file, file.replace(/\.json$/, '.bak.json')); lastBackupAt = Date.now(); } } catch {} const tmp = file + '.tmp'; fs.writeFileSync(tmp, JSON.stringify(data, null, 2)); fs.renameSync(tmp, file); }
 function createWindow() { const win = new BrowserWindow({ width: 1440, height: 920, icon: appIcon, minWidth: 1100, minHeight: 720, title: ' ', autoHideMenuBar: true, backgroundColor: '#ffffff', webPreferences: { preload: path.join(__dirname, 'preload.cjs'), contextIsolation: true } }); win.setMenuBarVisibility(false); win.on('page-title-updated', event => event.preventDefault()); win.loadFile(path.join(__dirname, '../dist/index.html')); }
 ipcMain.handle('store:load', () => readStore());
 ipcMain.handle('store:save', (_, value) => { writeStore(value); return true; });
+const LIB_KINDS = { conversa: 'conversas', gameplay: 'satisfatorios' };
+const libRoot = dir => path.resolve(dir && String(dir).trim() ? String(dir) : path.join(app.getPath('documents'), 'studioConversas'));
+const safeSeg = name => String(name || '').replace(/[<>:"/\\|?*\u0000-\u001f]/g, '').replace(/[. ]+$/, '').trim() || 'sem-nome';
+const insideDir = (root, file) => { const rel = path.relative(root, path.resolve(file)); return !!rel && !rel.startsWith('..') && !path.isAbsolute(rel); };
+ipcMain.handle('library:root', (_, dir) => libRoot(dir));
+ipcMain.handle('library:ensure', (_, { libraryDir, panel, channel }) => { try { const base = path.join(libRoot(libraryDir), safeSeg(panel)); if (channel) { for (const sub of Object.values(LIB_KINDS)) fs.mkdirSync(path.join(base, safeSeg(channel), sub), { recursive: true }); } else fs.mkdirSync(base, { recursive: true }); return true; } catch { return false; } });
+ipcMain.handle('library:import', async (_, { libraryDir, panel, channel, kind, files }) => {
+  const sub = LIB_KINDS[kind]; if (!sub) return [];
+  const dest = path.join(libRoot(libraryDir), safeSeg(panel), safeSeg(channel), sub); fs.mkdirSync(dest, { recursive: true });
+  const out = [];
+  for (const src of files || []) { try {
+    if (!fs.statSync(src).isFile() || !VIDEO_EXTENSIONS.has(path.extname(src).toLowerCase())) continue;
+    if (path.dirname(path.resolve(src)) === dest) { out.push({ path: path.resolve(src), name: path.basename(src) }); continue; }
+    const ext = path.extname(src), base = path.basename(src, ext); let target = path.join(dest, base + ext), n = 2;
+    while (fs.existsSync(target) && fs.statSync(target).size !== fs.statSync(src).size) { target = path.join(dest, base + ' (' + n + ')' + ext); n++; }
+    if (!fs.existsSync(target)) { try { fs.linkSync(src, target); } catch { await fs.promises.copyFile(src, target); } }
+    out.push({ path: target, name: path.basename(target) });
+  } catch {} }
+  return out;
+});
+ipcMain.handle('library:remove', (_, { libraryDir, files }) => { const root = libRoot(libraryDir); let n = 0; for (const f of files || []) { try { if (insideDir(root, f) && fs.existsSync(f)) { fs.unlinkSync(f); n++; } } catch {} } return n; });
+ipcMain.handle('library:scan', (_, dir) => { const root = libRoot(dir); const out = []; const dirs = p => { try { return fs.readdirSync(p, { withFileTypes: true }).filter(e => e.isDirectory()).map(e => e.name); } catch { return []; } };
+  for (const panel of dirs(root)) for (const channel of dirs(path.join(root, panel))) for (const [kind, sub] of Object.entries(LIB_KINDS)) { const d = path.join(root, panel, channel, sub); try { for (const e of fs.readdirSync(d, { withFileTypes: true })) if (e.isFile() && VIDEO_EXTENSIONS.has(path.extname(e.name).toLowerCase())) out.push({ panel, channel, kind, path: path.join(d, e.name), name: e.name }); } catch {} }
+  return out; });
+
 ipcMain.handle('dialog:files', async (_, filters) => { const r = await dialog.showOpenDialog({ properties: ['openFile', 'multiSelections'], filters }); return r.canceled ? [] : r.filePaths; });
 ipcMain.handle('dialog:folder', async () => { const r = await dialog.showOpenDialog({ properties: ['openDirectory', 'createDirectory'] }); return r.canceled ? '' : r.filePaths[0]; });
 ipcMain.handle('shell:open', (_, target) => shell.openPath(target)); ipcMain.handle('file:delete-output', (_, target, root) => { const base=path.resolve(root||''); const file=path.resolve(target); const relative=path.relative(base,file); if(!relative || relative.startsWith('..') || path.isAbsolute(relative)) return {ok:false,error:'Arquivo fora da pasta de exportação.'}; try { if(fs.existsSync(file)) fs.unlinkSync(file); return {ok:true}; } catch(error) { return {ok:false,error:error.message}; } });
